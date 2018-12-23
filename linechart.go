@@ -87,7 +87,7 @@ func NewLineChart() *LineChart {
 		DotStyle:         '•',
 		Data:             make(map[string][]float64),
 		LineColor:        make(map[string]Attribute),
-		axisXLabelGap:    2,
+		axisXLabelGap:    3,
 		axisYLabelGap:    1,
 		bottomValue:      math.Inf(1),
 		topValue:         math.Inf(-1),
@@ -132,12 +132,15 @@ func (lc *LineChart) renderBraille() Buffer {
 
 		minCell := lc.innerArea.Min.X + lc.labelYSpace
 		cellPos := lc.innerArea.Max.X - 1
-		for dataPos := len(seriesData) - 1; dataPos >= 0 && cellPos > minCell; {
-			b0, m0 := getPos(seriesData[dataPos])
+		for k, v := range seriesData {
+			b0, m0 := getPos(v)
 			var b1, m1 int
-
-			if dataPos > 0 {
-				b1, m1 = getPos(seriesData[dataPos-1])
+			x := minCell + k*(cellPos-minCell)/len(seriesData)
+			if k > 0 {
+				if k%2 == 0 {
+					continue
+				}
+				b1, m1 = getPos(seriesData[k-1])
 
 				if b0 == b1 {
 					c := Cell{
@@ -146,7 +149,7 @@ func (lc *LineChart) renderBraille() Buffer {
 						Fg: thisLineColor,
 					}
 					y := lc.innerArea.Min.Y + lc.innerArea.Dy() - 3 - b0
-					buf.Set(cellPos, y, c)
+					buf.Set(x, y, c)
 				} else {
 					c0 := Cell{
 						Ch: rSingleBraille[m0],
@@ -154,7 +157,7 @@ func (lc *LineChart) renderBraille() Buffer {
 						Bg: lc.Bg,
 					}
 					y0 := lc.innerArea.Min.Y + lc.innerArea.Dy() - 3 - b0
-					buf.Set(cellPos, y0, c0)
+					buf.Set(x, y0, c0)
 
 					c1 := Cell{
 						Ch: lSingleBraille[m1],
@@ -162,7 +165,7 @@ func (lc *LineChart) renderBraille() Buffer {
 						Bg: lc.Bg,
 					}
 					y1 := lc.innerArea.Min.Y + lc.innerArea.Dy() - 3 - b1
-					buf.Set(cellPos, y1, c1)
+					buf.Set(x, y1, c1)
 				}
 			} else {
 				c0 := Cell{
@@ -170,12 +173,10 @@ func (lc *LineChart) renderBraille() Buffer {
 					Fg: thisLineColor,
 					Bg: lc.Bg,
 				}
-				x0 := cellPos
+				x0 := minCell + k*(cellPos-minCell)/len(seriesData)
 				y0 := lc.innerArea.Min.Y + lc.innerArea.Dy() - 3 - b0
 				buf.Set(x0, y0, c0)
 			}
-			dataPos -= 2
-			cellPos--
 		}
 	}
 	return buf
@@ -189,19 +190,16 @@ func (lc *LineChart) renderDot() Buffer {
 			thisLineColor = lc.defaultLineColor
 		}
 		minCell := lc.innerArea.Min.X + lc.labelYSpace
-		cellPos := lc.innerArea.Max.X - 1
-		for dataPos := len(seriesData) - 1; dataPos >= 0 && cellPos > minCell; {
+		cellPos := lc.innerArea.Max.X
+		for k, v := range seriesData {
 			c := Cell{
 				Ch: lc.DotStyle,
 				Fg: thisLineColor,
 				Bg: lc.Bg,
 			}
-			x := cellPos
-			y := lc.innerArea.Min.Y + lc.innerArea.Dy() - 3 - int((seriesData[dataPos]-lc.bottomValue)/lc.scale+0.5)
+			x := minCell + k*(cellPos-minCell)/len(seriesData)
+			y := lc.innerArea.Min.Y + lc.innerArea.Dy() - 3 - int((v-lc.bottomValue)/lc.scale+0.5)
 			buf.Set(x, y, c)
-
-			cellPos--
-			dataPos--
 		}
 	}
 
@@ -211,32 +209,32 @@ func (lc *LineChart) renderDot() Buffer {
 func (lc *LineChart) calcLabelX() {
 	lc.labelX = [][]rune{}
 
-	for i, l := 0, 0; i < len(lc.DataLabels) && l < lc.axisXWidth; i++ {
-		if lc.Mode == "dot" {
-			if l >= len(lc.DataLabels) {
-				break
-			}
+	last := 0
 
-			s := str2runes(lc.DataLabels[l])
-			w := strWidth(lc.DataLabels[l])
-			if l+w <= lc.axisXWidth {
-				lc.labelX = append(lc.labelX, s)
-			}
-			l += w + lc.axisXLabelGap
-		} else { // braille
-			if 2*l >= len(lc.DataLabels) {
-				break
-			}
-
-			s := str2runes(lc.DataLabels[2*l])
-			w := strWidth(lc.DataLabels[2*l])
-			if l+w <= lc.axisXWidth {
-				lc.labelX = append(lc.labelX, s)
-			}
-			l += w + lc.axisXLabelGap
-
+	for k, v := range lc.DataLabels {
+		label := str2runes(v)
+		labelWidth := strWidth(v)
+		if k == 0 {
+			lc.labelX = append(lc.labelX, label)
+			last = labelWidth
+			continue
 		}
+
+		newPoint := k * lc.innerArea.Dx() / len(lc.DataLabels)
+		// fill pading
+		padding := newPoint - labelWidth/2.0 - last
+		if padding < lc.axisXLabelGap {
+			continue
+		}
+		paddingRune := make([]rune, padding)
+		for k := range paddingRune {
+			paddingRune[k] = ' '
+		}
+		lc.labelX = append(lc.labelX, paddingRune, label)
+		last = last + padding + labelWidth
+
 	}
+
 }
 
 func shortenFloatVal(x float64) string {
@@ -365,7 +363,7 @@ func (lc *LineChart) plotAxes() Buffer {
 			y := lc.innerArea.Min.Y + lc.innerArea.Dy() - 1
 			buf.Set(x, y, c)
 		}
-		oft += len(rs) + lc.axisXLabelGap
+		oft += len(rs)
 	}
 
 	// y labels
