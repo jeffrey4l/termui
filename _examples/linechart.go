@@ -19,8 +19,10 @@ func main() {
 	}
 	defer ui.Close()
 
+	maxPoints := 50
+
 	sinps := (func() map[string][]float64 {
-		n := 220
+		n := maxPoints
 		ps := make(map[string][]float64)
 		ps["first"] = make([]float64, n)
 		ps["second"] = make([]float64, n)

@@ -8,6 +8,7 @@ package main
 
 import (
 	"math"
+	"strconv"
 	"time"
 
 	ui "github.com/gizak/termui"
@@ -77,19 +78,27 @@ func main() {
 	sls.BorderLabel = "Sparkline"
 	sls.Y = 4
 	sls.X = 25
+	maxPoints := 220
 
 	sinData := (func() []float64 {
-		n := 220
-		ps := make([]float64, n)
+		ps := make([]float64, maxPoints)
 		for i := range ps {
 			ps[i] = 1 + math.Sin(float64(i)/5)
 		}
 		return ps
 	})()
+	labels := (func() []string {
+		ls := make([]string, maxPoints)
+		for i := range ls {
+			ls[i] = strconv.Itoa(i)
+		}
+		return ls
+	})()
 
 	lc := ui.NewLineChart()
 	lc.BorderLabel = "dot-mode Line Chart"
 	lc.Data["default"] = sinData
+	lc.DataLabels = labels
 	lc.Width = 50
 	lc.Height = 11
 	lc.X = 0
@@ -113,6 +122,7 @@ func main() {
 	lc2 := ui.NewLineChart()
 	lc2.BorderLabel = "braille-mode Line Chart"
 	lc2.Data["default"] = sinData
+	lc2.DataLabels = labels
 	lc2.Width = 26
 	lc2.Height = 11
 	lc2.X = 51
@@ -133,8 +143,10 @@ func main() {
 		l.Items = listData[count%9:]
 		sls.Lines[0].Data = sparklineData[:30+count%50]
 		sls.Lines[1].Data = sparklineData[:35+count%50]
-		lc.Data["default"] = sinData[count/2%220:]
-		lc2.Data["default"] = sinData[2*count%220:]
+		lc.Data["default"] = sinData[count%maxPoints : count%maxPoints+50]
+		lc2.Data["default"] = sinData[count%maxPoints : count%maxPoints+50]
+		lc.DataLabels = labels[count%maxPoints : count%maxPoints+50]
+		lc2.DataLabels = labels[count%maxPoints : count%maxPoints+50]
 		bc.Data = barchartData[count/2%10:]
 
 		ui.Render(p, l, g, sls, lc, bc, lc2, p2)

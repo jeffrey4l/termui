@@ -19,10 +19,10 @@ func main() {
 		panic(err)
 	}
 	defer ui.Close()
+	maxPoints := 400
 
 	sinps := (func() []float64 {
-		n := 400
-		ps := make([]float64, n)
+		ps := make([]float64, maxPoints)
 		for i := range ps {
 			ps[i] = 1 + math.Sin(float64(i)/5)
 		}
@@ -119,7 +119,7 @@ func main() {
 				g.Percent = (g.Percent + 3) % 100
 			}
 			sp.Lines[0].Data = spdata[:100+tickerCount]
-			lc.Data["default"] = sinps[2*tickerCount:]
+			lc.Data["default"] = sinps[tickerCount%maxPoints : tickerCount%maxPoints+200]
 			ui.Render(ui.Body)
 			tickerCount++
 		}
